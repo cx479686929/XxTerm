@@ -1,0 +1,333 @@
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useAppStore } from '../stores/appStore'
+import type { ServerConfig } from '../types'
+import { getServerColor } from '../utils/helpers'
+import { useToast } from '../hooks/useToast'
+
+export default function Sidebar() {
+  const {
+    servers,
+    deleteServer,
+    sidebarWidth,
+    setSidebarWidth,
+    setShowAddServer,
+    setEditServerId,
+    setShowSettings,
+    addTab,
+    tabs,
+    setActiveTab,
+    showFileManager,
+    setShowFileManager,
+    setShowMonitor,
+  } = useAppStore()
+  const { toast } = useToast()
+
+  const [search, setSearch] = useState('')
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; server: ServerConfig } | null>(null)
+  const [connecting, setConnecting] = useState<Set<string>>(new Set())
+  const resizing = useRef(false)
+  const startX = useRef(0)
+  const startW = useRef(0)
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingServer = useRef<ServerConfig | null>(null)
+
+  const filtered = servers.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.host.toLowerCase().includes(search.toLowerCase())
+  )
+
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current)
+    }
+  }, [])
+
+  const handleServerClick = (server: ServerConfig) => {
+    // Delay single click to distinguish from double click
+    pendingServer.current = server
+    if (clickTimer.current) clearTimeout(clickTimer.current)
+    clickTimer.current = setTimeout(() => {
+      if (pendingServer.current === server) {
+        handleConnect(server)
+      }
+      clickTimer.current = null
+      pendingServer.current = null
+    }, 250)
+  }
+
+  const handleServerDoubleClick = (server: ServerConfig) => {
+    // Cancel pending single click
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current)
+      clickTimer.current = null
+      pendingServer.current = null
+    }
+    handleConnect(server, 'terminal', true)
+  }
+
+  const handleConnect = useCallback(async (server: ServerConfig, type: 'terminal' | 'sftp' = 'terminal', forceNew = false) => {
+    // Check existing tab (unless forceNew)
+    if (!forceNew) {
+      const existing = tabs.find(t => t.serverId === server.id && t.type === type)
+      if (existing) {
+        setActiveTab(existing.id)
+        return
+      }
+    }
+
+    const color = server.color ?? getServerColor(server.host)
+    const tab = addTab({
+      serverId: server.id,
+      serverName: server.name,
+      serverHost: `${server.username}@${server.host}`,
+      type,
+      status: 'connecting',
+      title: server.name,
+      color,
+    })
+
+    setConnecting(prev => new Set(prev).add(server.id))
+
+    try {
+      // Decrypt credentials before connecting
+      const [password, privateKey, passphrase] = await Promise.all([
+        server.password ? window.electron?.credentialsDecrypt(server.password) : Promise.resolve(undefined),
+        server.privateKey ? window.electron?.credentialsDecrypt(server.privateKey) : Promise.resolve(undefined),
+        server.passphrase ? window.electron?.credentialsDecrypt(server.passphrase) : Promise.resolve(undefined),
+      ])
+
+      const result = await window.electron?.sshConnect({
+        id: tab.id,
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        password: password ?? server.password,
+        privateKey: privateKey ?? server.privateKey,
+        passphrase: passphrase ?? server.passphrase,
+      })
+
+      if (result?.success) {
+        useAppStore.getState().updateTab(tab.id, { status: 'connected' })
+        useAppStore.getState().updateServer(server.id, { lastConnected: new Date().toISOString() })
+        toast('success', `已连接到 ${server.name}`)
+      }
+    } catch (err: any) {
+      useAppStore.getState().updateTab(tab.id, { status: 'error' })
+      toast('error', `连接失败: ${err?.error ?? err?.message ?? '未知错误'}`)
+    } finally {
+      setConnecting(prev => {
+        const s = new Set(prev)
+        s.delete(server.id)
+        return s
+      })
+    }
+  }, [tabs, addTab, setActiveTab, toast])
+
+  // Open or switch to local terminal
+  const openLocalTerminal = useCallback(() => {
+    // Reuse existing local tab if any
+    const existing = tabs.find(t => t.type === 'local')
+    if (existing) {
+      setActiveTab(existing.id)
+      return
+    }
+    addTab({
+      serverId: '__local__',
+      serverName: '本地终端',
+      serverHost: 'localhost',
+      type: 'local',
+      status: 'connected',
+      title: '本地终端',
+      color: '#10b981',
+    })
+  }, [tabs, addTab, setActiveTab])
+
+  // Resize logic
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizing.current = true
+    startX.current = e.clientX
+    startW.current = sidebarWidth
+  }, [sidebarWidth])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizing.current) return
+      const delta = e.clientX - startX.current
+      const newW = Math.max(180, Math.min(400, startW.current + delta))
+      setSidebarWidth(newW)
+    }
+    const onUp = () => { resizing.current = false }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [setSidebarWidth])
+
+  const handleContextMenu = (e: React.MouseEvent, server: ServerConfig) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, server })
+  }
+
+  useEffect(() => {
+    const close = () => setContextMenu(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [])
+
+  return (
+    <>
+      <div className="sidebar" style={{ width: sidebarWidth }}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <div className="sidebar-logo-icon">⚡</div>
+            <span className="sidebar-logo-text">XxTerm</span>
+          </div>
+          <input
+            className="sidebar-search"
+            placeholder="搜索服务器..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="server-list">
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">🖥️</div>
+              <div className="empty-state-text">
+                {search ? '没有匹配的服务器' : '还没有服务器\n点击下方按钮添加'}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="server-group-label">服务器列表</div>
+              {filtered.map(server => {
+                const color = server.color ?? getServerColor(server.host)
+                const isConnecting = connecting.has(server.id)
+                const connectedTab = tabs.find(t => t.serverId === server.id && t.status === 'connected')
+                return (
+                  <div
+                    key={server.id}
+                    className={`server-item ${connectedTab ? 'active' : ''}`}
+                    onClick={() => handleServerClick(server)}
+                    onDoubleClick={() => handleServerDoubleClick(server)}
+                    onContextMenu={e => handleContextMenu(e, server)}
+                  >
+                    <span
+                      className="server-dot"
+                      style={{
+                        color,
+                        background: isConnecting ? undefined : (connectedTab ? color : 'transparent'),
+                        border: connectedTab ? 'none' : `1.5px solid ${color}`,
+                        animation: isConnecting ? 'pulse 1s infinite' : undefined,
+                      }}
+                    />
+                    <div className="server-info">
+                      <div className="server-name">{server.name}</div>
+                      <div className="server-host">{server.username}@{server.host}:{server.port}</div>
+                    </div>
+                    <div className="server-actions">
+                      <button
+                        className="icon-btn"
+                        data-tooltip="文件管理"
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleConnect(server, 'sftp')
+                          setShowFileManager(true)
+                        }}
+                      >📂</button>
+                      <button
+                        className="icon-btn"
+                        data-tooltip="编辑"
+                        onClick={e => {
+                          e.stopPropagation()
+                          setEditServerId(server.id)
+                          setShowAddServer(true)
+                        }}
+                      >✏️</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
+        </div>
+
+        <div className="sidebar-bottom">
+          <button className="sidebar-action" onClick={openLocalTerminal}>
+            <span>💻</span>
+            <span>本地终端</span>
+          </button>
+          <button className="sidebar-action accent" onClick={() => setShowAddServer(true)}>
+            <span>＋</span>
+            <span>添加服务器</span>
+          </button>
+          <button className="sidebar-action" onClick={() => setShowFileManager(!showFileManager)}>
+            <span>📁</span>
+            <span>文件管理器</span>
+          </button>
+          <button className="sidebar-action" onClick={() => setShowSettings(true)}>
+            <span>⚙️</span>
+            <span>设置</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Resize handle */}
+      <div className="resize-handle" onMouseDown={onMouseDown} />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="context-menu-item" onClick={() => {
+            handleConnect(contextMenu.server)
+            setContextMenu(null)
+          }}>
+            🖥️ 打开终端
+          </div>
+          <div className="context-menu-item" onClick={() => {
+            handleConnect(contextMenu.server, 'sftp')
+            setShowFileManager(true)
+            setContextMenu(null)
+          }}>
+            📁 文件管理
+          </div>
+          <div className="context-menu-item" onClick={() => {
+            const tab = tabs.find(t => t.serverId === contextMenu.server.id && t.status === 'connected')
+            if (tab) {
+              setShowMonitor({ tabId: tab.id, serverName: contextMenu.server.name })
+            } else {
+              toast('warning', '请先连接到该服务器')
+            }
+            setContextMenu(null)
+          }}>
+            📊 系统监控
+          </div>
+          <div className="context-menu-sep" />
+          <div className="context-menu-item" onClick={() => {
+            setEditServerId(contextMenu.server.id)
+            setShowAddServer(true)
+            setContextMenu(null)
+          }}>
+            ✏️ 编辑
+          </div>
+          <div className="context-menu-item danger" onClick={() => {
+            deleteServer(contextMenu.server.id)
+            toast('info', `已删除 ${contextMenu.server.name}`)
+            setContextMenu(null)
+          }}>
+            🗑️ 删除
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

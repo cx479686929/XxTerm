@@ -1,0 +1,66 @@
+{
+  "name": "xxterm",
+  "version": "1.0.0",
+  "description": "A beautiful cross-platform terminal with SSH and local terminal support",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "electron:dev": "vite",
+    "rebuild:pty": "electron-rebuild -f -w node-pty",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "terminal",
+    "ssh",
+    "cross-platform"
+  ],
+  "author": "XxTerm",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.19.40",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.0.0",
+    "electron-rebuild": "^3.2.9",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.7"
+  },
+  "dependencies": {
+    "@xterm/addon-canvas": "^0.7.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.378.0",
+    "node-pty": "^1.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ssh2": "^1.17.0",
+    "zustand": "^4.5.7"
+  },
+  "build": {
+    "appId": "com.xxterm.app",
+    "productName": "XxTerm",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
