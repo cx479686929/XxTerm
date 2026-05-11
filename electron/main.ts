@@ -4,11 +4,62 @@ import { Client } from 'ssh2'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as pty from 'node-pty'
+import { execSync } from 'child_process'
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 const iconPath = isDev ? join(__dirname, '../build/icon.icns') : join(process.resourcesPath, 'icon.icns')
 
 let mainWindow: BrowserWindow | null = null
+
+// ─── Shell PATH Detection ─────────────────────────────────────────────────────
+// macOS GUI apps (launched from Finder) don't inherit ~/.zshrc PATH.
+// We cache the login-shell PATH so every PTY gets the correct environment.
+let cachedLoginPath: string | null = null
+
+function detectUserPath(): string {
+  if (cachedLoginPath) return cachedLoginPath
+
+  const shell = process.env.SHELL || '/bin/zsh'
+
+  // Try to get PATH from a login shell (sources /etc/profile, ~/.profile, etc.)
+  try {
+    const path = execSync(`${shell} -l -c 'printf %s "$PATH"'`, {
+      encoding: 'utf8',
+      // Minimal env so the login shell builds its own PATH from config files
+      env: {
+        HOME: os.homedir(),
+        SHELL: shell,
+        TERM: 'xterm-256color',
+        USER: process.env.USER || '',
+      },
+      timeout: 5000,
+    }).trim()
+
+    if (path && path.length > 10 && path.includes('/')) {
+      cachedLoginPath = path
+      return path
+    }
+  } catch {
+    // Login shell approach failed — fall through
+  }
+
+  // Fallback: build a comprehensive PATH covering common install locations
+  const fallbacks = [
+    '/opt/homebrew/bin',    // Apple Silicon Homebrew
+    '/opt/homebrew/sbin',
+    '/usr/local/bin',        // Intel Homebrew / user-installed
+    '/usr/local/sbin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+    join(os.homedir(), 'bin'),
+    join(os.homedir(), '.local/bin'),
+  ]
+
+  cachedLoginPath = fallbacks.join(':')
+  return cachedLoginPath
+}
 
 // SSH connections map
 const sshConnections = new Map<string, Client>()
@@ -184,16 +235,21 @@ ipcMain.on('ssh:disconnect', (event, id: string) => {
 ipcMain.handle('local:shell', async (event, { id, cols, rows, shell: userShell }: { id: string, cols: number, rows: number, shell?: string }) => {
   const defaultShell = userShell || process.env.SHELL || (process.platform === 'win32' ? 'powershell.exe' : '/bin/zsh')
 
-  // Build a clean env for the PTY — macOS Electron apps may have a restricted PATH
+  // Build env for the PTY — use the login-shell PATH so commands like npm are found
   const ptyEnv: Record<string, string> = { ...process.env as Record<string, string> }
-  if (!ptyEnv.PATH || ptyEnv.PATH.length < 20) {
-    ptyEnv.PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin'
-  }
+  ptyEnv.PATH = detectUserPath()
   if (!ptyEnv.HOME) {
     ptyEnv.HOME = process.env.HOME || os.homedir()
   }
+  if (!ptyEnv.TERM) {
+    ptyEnv.TERM = 'xterm-256color'
+  }
 
-  const ptyProcess = pty.spawn(defaultShell, [], {
+  // Spawn as interactive shell so it sources ~/.zshrc / ~/.bashrc
+  // This gives the user their full custom PATH and aliases
+  const shellArgs = process.platform === 'win32' ? [] : ['-i']
+
+  const ptyProcess = pty.spawn(defaultShell, shellArgs, {
     name: 'xterm-256color',
     cols: cols || 80,
     rows: rows || 24,

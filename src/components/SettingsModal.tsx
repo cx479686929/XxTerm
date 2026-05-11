@@ -1,9 +1,15 @@
 import { useAppStore } from '../stores/appStore'
 import { themes } from '../themes'
 import type { ThemeId } from '../types'
+import { useState, useEffect } from 'react'
 
 export default function SettingsModal() {
   const { showSettings, setShowSettings, settings, updateSettings, setTheme } = useAppStore()
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    window.electron?.getVersion().then(v => { if (v) setAppVersion(v) })
+  }, [])
 
   if (!showSettings) return null
 
@@ -180,7 +186,7 @@ export default function SettingsModal() {
               }}>⚡</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>XxTerm</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>v1.0.0 · 跨平台 SSH 终端工具</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{appVersion || '1.1.0'} · 跨平台 SSH 终端工具</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                   Electron + React + xterm.js · SSH2
                 </div>
