@@ -72,7 +72,7 @@ const defaultSettings: AppSettings = {
   cursorStyle: 'bar',
   cursorBlink: true,
   scrollback: 5000,
-  theme: 'midnight',
+  theme: 'light',
   language: 'zh',
 }
 
