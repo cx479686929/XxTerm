@@ -4,6 +4,14 @@ import { useAppStore } from '../stores/appStore'
 import { formatFileSize, formatDate, getFileIcon } from '../utils/helpers'
 import { useToast } from '../hooks/useToast'
 
+interface TransferProgress {
+  type: 'upload' | 'download'
+  fileName: string
+  transferred: number
+  total: number
+  percent: number
+}
+
 interface Props {
   tabId: string
 }
@@ -23,6 +31,7 @@ export default function FileManager({ tabId }: Props) {
   const [previewImage, setPreviewImage] = useState<{ path: string; dataUrl: string } | null>(null)
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
+  const [transfer, setTransfer] = useState<TransferProgress | null>(null)
 
   const loadDir = useCallback(async (p: string) => {
     setLoading(true)
@@ -154,6 +163,25 @@ export default function FileManager({ tabId }: Props) {
     }
   }
 
+  // Listen for transfer progress
+  useEffect(() => {
+    if (!window.electron?.onTransferProgress) return
+    const unsubscribe = window.electron.onTransferProgress((info) => {
+      if (info.id !== tabId) return
+      setTransfer({
+        type: info.type as 'upload' | 'download',
+        fileName: info.fileName,
+        transferred: info.transferred,
+        total: info.total,
+        percent: info.percent,
+      })
+      if (info.percent >= 100) {
+        setTimeout(() => setTransfer(null), 1500)
+      }
+    })
+    return () => unsubscribe()
+  }, [tabId])
+
   const uploadFile = async () => {
     if (!isConnected) {
       toast('warning', 'SSH 连接尚未建立')
@@ -168,10 +196,12 @@ export default function FileManager({ tabId }: Props) {
       const localPath = result.filePaths[0]
       const fileName = localPath.split('/').pop()
       const remotePath = `${path}/${fileName}`.replace(/\/\//g, '/')
+      setTransfer({ type: 'upload', fileName: fileName ?? '', transferred: 0, total: 0, percent: 0 })
       await window.electron?.sftpUpload({ id: tabId, localPath, remotePath })
       toast('success', `文件 "${fileName}" 上传成功`)
       loadDir(path)
     } catch (err: any) {
+      setTransfer(null)
       toast('error', `上传失败: ${err?.message ?? err}`)
     }
   }
@@ -188,9 +218,11 @@ export default function FileManager({ tabId }: Props) {
       })
       if (result?.canceled || !result?.filePath) return
       const localPath = result.filePath
+      setTransfer({ type: 'download', fileName: file.name, transferred: 0, total: file.size, percent: 0 })
       await window.electron?.sftpDownload({ id: tabId, remotePath: file.path, localPath })
       toast('success', `文件 "${file.name}" 下载成功`)
     } catch (err: any) {
+      setTransfer(null)
       toast('error', `下载失败: ${err?.message ?? err}`)
     }
   }
@@ -276,6 +308,19 @@ export default function FileManager({ tabId }: Props) {
               />
               <button className="btn btn-primary btn-sm" onClick={createFolder}>创建</button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setShowNewFolder(false); setNewFolderName('') }}>取消</button>
+            </div>
+          </div>
+        )}
+
+        {/* Transfer Progress */}
+        {transfer && (
+          <div className="transfer-progress">
+            <div className="transfer-progress-info">
+              <span>{transfer.type === 'upload' ? '⬆️' : '⬇️'} {transfer.fileName}</span>
+              <span>{formatFileSize(transfer.transferred)} / {formatFileSize(transfer.total)} · {transfer.percent}%</span>
+            </div>
+            <div className="transfer-progress-bar">
+              <div className="transfer-progress-fill" style={{ width: `${transfer.percent}%` }} />
             </div>
           </div>
         )}

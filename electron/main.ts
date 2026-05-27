@@ -458,17 +458,44 @@ ipcMain.handle('sftp:delete', async (event, { id, path, isDir }: { id: string, p
   })
 })
 
-// ─── SFTP Upload/Download ─────────────────────────────────────────────────
+// ─── SFTP Upload/Download (with progress) ──────────────────────────────────
 ipcMain.handle('sftp:upload', async (event, { id, localPath, remotePath }: { id: string, localPath: string, remotePath: string }) => {
   return new Promise((resolve, reject) => {
     const conn = sshConnections.get(id)
     if (!conn) return reject(new Error('Not connected'))
 
     const doUpload = (sftp: any) => {
-      sftp.fastPut(localPath, remotePath, (err: any) => {
-        if (err) return reject(err)
+      const fileName = localPath.split('/').pop() ?? localPath
+      let fileSize = 0
+      try { fileSize = fs.statSync(localPath).size } catch { /* ignore */ }
+
+      const readStream = fs.createReadStream(localPath)
+      const writeStream = sftp.createWriteStream(remotePath)
+      let transferred = 0
+      let lastPercent = -1
+
+      readStream.on('data', (chunk: Buffer) => {
+        transferred += chunk.length
+        const percent = fileSize > 0 ? Math.floor((transferred / fileSize) * 100) : 0
+        if (percent !== lastPercent) {
+          lastPercent = percent
+          mainWindow?.webContents.send('transfer:progress', {
+            id, type: 'upload', fileName, transferred, total: fileSize, percent
+          })
+        }
+      })
+
+      writeStream.on('close', () => {
+        mainWindow?.webContents.send('transfer:progress', {
+          id, type: 'upload', fileName, transferred: fileSize, total: fileSize, percent: 100
+        })
         resolve({ success: true })
       })
+
+      writeStream.on('error', (err: any) => reject(err))
+      readStream.on('error', (err: any) => reject(err))
+
+      readStream.pipe(writeStream)
     }
 
     if (sftpSessions.has(id)) {
@@ -489,9 +516,39 @@ ipcMain.handle('sftp:download', async (event, { id, remotePath, localPath }: { i
     if (!conn) return reject(new Error('Not connected'))
 
     const doDownload = (sftp: any) => {
-      sftp.fastGet(remotePath, localPath, (err: any) => {
-        if (err) return reject(err)
-        resolve({ success: true })
+      const fileName = remotePath.split('/').pop() ?? remotePath
+      let fileSize = 0
+
+      sftp.stat(remotePath, (statErr: any, stats: any) => {
+        if (!statErr && stats) fileSize = stats.size
+
+        const readStream = sftp.createReadStream(remotePath)
+        const writeStream = fs.createWriteStream(localPath)
+        let transferred = 0
+        let lastPercent = -1
+
+        readStream.on('data', (chunk: Buffer) => {
+          transferred += chunk.length
+          const percent = fileSize > 0 ? Math.floor((transferred / fileSize) * 100) : 0
+          if (percent !== lastPercent) {
+            lastPercent = percent
+            mainWindow?.webContents.send('transfer:progress', {
+              id, type: 'download', fileName, transferred, total: fileSize, percent
+            })
+          }
+        })
+
+        writeStream.on('close', () => {
+          mainWindow?.webContents.send('transfer:progress', {
+            id, type: 'download', fileName, transferred: fileSize, total: fileSize, percent: 100
+          })
+          resolve({ success: true })
+        })
+
+        writeStream.on('error', (err: any) => reject(err))
+        readStream.on('error', (err: any) => reject(err))
+
+        readStream.pipe(writeStream)
       })
     }
 

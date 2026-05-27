@@ -57,6 +57,13 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on(`local:close:${id}`, handler)
     return () => ipcRenderer.removeListener(`local:close:${id}`, handler)
   },
+  // Transfer progress
+  onTransferProgress: (cb: (info: { id: string; type: string; fileName: string; transferred: number; total: number; percent: number }) => void) => {
+    const handler = (_: any, info: any) => cb(info)
+    ipcRenderer.on('transfer:progress', handler)
+    return () => ipcRenderer.removeListener('transfer:progress', handler)
+  },
+
   // Credentials
   credentialsEncrypt: (plaintext: string) => ipcRenderer.invoke('credentials:encrypt', plaintext),
   credentialsDecrypt: (ciphertext: string) => ipcRenderer.invoke('credentials:decrypt', ciphertext),

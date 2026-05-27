@@ -76,6 +76,7 @@ declare global {
       localDisconnect: (id: string) => void
       onLocalData: (id: string, cb: (data: string) => void) => () => void
       onLocalClose: (id: string, cb: () => void) => () => void
+      onTransferProgress: (cb: (info: { id: string; type: string; fileName: string; transferred: number; total: number; percent: number }) => void) => () => void
       credentialsEncrypt: (plaintext: string) => Promise<string>
       credentialsDecrypt: (ciphertext: string) => Promise<string>
       credentialsIsEncrypted: (value: string) => Promise<boolean>

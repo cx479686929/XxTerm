@@ -933,6 +933,50 @@ html, body, #root {
   color: var(--text-muted);
 }
 
+/* ─── Transfer Progress ──────────────────────────────────────────────────── */
+.transfer-progress {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: slideInUp 200ms ease;
+}
+
+.transfer-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+  gap: 6px;
+}
+
+.transfer-progress-info span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.transfer-progress-info span:last-child {
+  flex-shrink: 0;
+}
+
+.transfer-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.transfer-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
 /* ─── Settings Panel ─────────────────────────────────────────────────────────── */
 .settings-panel {
   display: flex;
