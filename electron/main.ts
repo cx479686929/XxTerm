@@ -231,7 +231,7 @@ ipcMain.on('ssh:disconnect', (event, id: string) => {
   // Clean up PID temp file via exec before closing the connection
   const conn = sshConnections.get(id)
   if (conn) {
-    try { conn.exec(`rm -f /tmp/.xxterm_pid_${id} /tmp/.xxterm_cwd_${id}`) } catch {}
+    try { conn.exec(`rm -f /tmp/.xxterm_pid_${id} /tmp/.xxterm_cwd_${id}`, () => {}) } catch {}
     conn.end()
   }
   sshStreams.delete(id)
@@ -482,7 +482,7 @@ ipcMain.handle('sftp:upload', async (event, { id, localPath, remotePath }: { id:
       let transferred = 0
       let lastPercent = -1
 
-      readStream.on('data', (chunk: Buffer) => {
+      readStream.on('data', (chunk: any) => {
         transferred += chunk.length
         const percent = fileSize > 0 ? Math.floor((transferred / fileSize) * 100) : 0
         if (percent !== lastPercent) {
@@ -535,7 +535,7 @@ ipcMain.handle('sftp:download', async (event, { id, remotePath, localPath }: { i
         let transferred = 0
         let lastPercent = -1
 
-        readStream.on('data', (chunk: Buffer) => {
+        readStream.on('data', (chunk: any) => {
           transferred += chunk.length
           const percent = fileSize > 0 ? Math.floor((transferred / fileSize) * 100) : 0
           if (percent !== lastPercent) {
