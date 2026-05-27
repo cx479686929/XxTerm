@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electron', {
   sftpDelete: (params: any) => ipcRenderer.invoke('sftp:delete', params),
   sftpUpload: (params: any) => ipcRenderer.invoke('sftp:upload', params),
   sftpDownload: (params: any) => ipcRenderer.invoke('sftp:download', params),
+  sftpGetCwd: (params: any) => ipcRenderer.invoke('sftp:getCwd', params),
 
   // Dialogs
   showOpenDialog: (options?: any) => ipcRenderer.invoke('dialog:openFile', options),

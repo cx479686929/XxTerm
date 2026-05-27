@@ -66,6 +66,7 @@ declare global {
       sftpDelete: (params: any) => Promise<any>
       sftpUpload: (params: any) => Promise<any>
       sftpDownload: (params: any) => Promise<any>
+      sftpGetCwd: (params: any) => Promise<string>
       showOpenDialog: (options?: any) => Promise<any>
       showSaveDialog: (options?: any) => Promise<any>
       getVersion: () => Promise<string>

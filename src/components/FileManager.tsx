@@ -21,6 +21,7 @@ export default function FileManager({ tabId }: Props) {
   const { toast } = useToast()
   const tab = tabs.find(t => t.id === tabId)
   const isConnected = tab?.status === 'connected'
+  const isLocal = tab?.type === 'local'
   const [path, setPath] = useState('/')
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -54,18 +55,30 @@ export default function FileManager({ tabId }: Props) {
     }
   }, [tabId, toast])
 
+  // Sync with current terminal working directory
+  const syncCwd = useCallback(async () => {
+    if (!isConnected || isLocal) return
+    try {
+      const cwd = await window.electron?.sftpGetCwd({ id: tabId })
+      if (cwd) {
+        setPathHistory([cwd])
+        loadDir(cwd)
+      }
+    } catch { /* ignore */ }
+  }, [isConnected, isLocal, tabId, loadDir])
+
   // Load directory once connection is established
   const loadedRef = useRef(false)
   useEffect(() => {
-    if (isConnected && !loadedRef.current) {
+    if (isConnected && !isLocal && !loadedRef.current) {
       loadedRef.current = true
-      loadDir('/')
+      syncCwd()
     }
     // Reset when tab changes
     if (tabId) {
       loadedRef.current = false
     }
-  }, [isConnected, tabId])
+  }, [isConnected, isLocal, tabId])
 
   const navigate = (p: string) => {
     setPathHistory(h => [...h, p])
@@ -249,6 +262,14 @@ export default function FileManager({ tabId }: Props) {
                 data-tooltip="刷新"
                 data-tooltip-below
               >🔄</button>
+              {!isLocal && (
+                <button
+                  className="icon-btn"
+                  onClick={syncCwd}
+                  data-tooltip="同步终端路径"
+                  data-tooltip-below
+                >🔗</button>
+              )}
               <button
                 className="icon-btn"
                 onClick={() => setShowNewFolder(true)}
@@ -326,7 +347,12 @@ export default function FileManager({ tabId }: Props) {
         )}
 
         <div className="file-list">
-          {!isConnected ? (
+          {isLocal ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">💻</div>
+              <div className="empty-state-text">当前为本地终端<br />请切换到 SSH 标签页使用文件管理</div>
+            </div>
+          ) : !isConnected ? (
             <div className="empty-state">
               <div className="empty-state-icon">⏳</div>
               <div className="empty-state-text">等待 SSH 连接建立...</div>

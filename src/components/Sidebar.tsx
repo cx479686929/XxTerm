@@ -236,7 +236,12 @@ export default function Sidebar() {
                         data-tooltip="文件管理"
                         onClick={e => {
                           e.stopPropagation()
-                          handleConnect(server, 'sftp')
+                          const existing = tabs.find(t => t.serverId === server.id && t.status === 'connected')
+                          if (existing) {
+                            setActiveTab(existing.id)
+                          } else {
+                            handleConnect(server, 'terminal')
+                          }
                           setShowFileManager(true)
                         }}
                       >📂</button>
@@ -294,7 +299,12 @@ export default function Sidebar() {
             🖥️ 打开终端
           </div>
           <div className="context-menu-item" onClick={() => {
-            handleConnect(contextMenu.server, 'sftp')
+            const existing = tabs.find(t => t.serverId === contextMenu.server.id && t.status === 'connected')
+            if (existing) {
+              setActiveTab(existing.id)
+            } else {
+              handleConnect(contextMenu.server, 'terminal')
+            }
             setShowFileManager(true)
             setContextMenu(null)
           }}>

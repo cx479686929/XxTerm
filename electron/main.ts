@@ -172,6 +172,9 @@ ipcMain.handle('ssh:shell', async (event, { id, cols, rows }: { id: string, cols
       
       sshStreams.set(id, stream)
 
+      // Write shell PID to a temp file for later cwd lookup (invisible in terminal)
+      stream.write(` stty -echo;echo $$>/tmp/.xxterm_pid_${id};stty echo;printf '\\033[1A\\033[M'\n`)
+
       stream.on('data', (data: Buffer) => {
         mainWindow?.webContents.send(`ssh:data:${id}`, data.toString('utf8'))
       })
@@ -224,11 +227,16 @@ ipcMain.handle('ssh:exec', async (event, { id, command }: { id: string, command:
 // ─── SSH Disconnect ───────────────────────────────────────────────────────────
 ipcMain.on('ssh:disconnect', (event, id: string) => {
   const stream = sshStreams.get(id)
-  if (stream) { stream.close(); sshStreams.delete(id) }
+  if (stream) stream.close()
+  // Clean up PID temp file via exec before closing the connection
   const conn = sshConnections.get(id)
-  if (conn) { conn.end(); sshConnections.delete(id) }
-  const sftp = sftpSessions.get(id)
-  if (sftp) sftpSessions.delete(id)
+  if (conn) {
+    try { conn.exec(`rm -f /tmp/.xxterm_pid_${id} /tmp/.xxterm_cwd_${id}`) } catch {}
+    conn.end()
+  }
+  sshStreams.delete(id)
+  sshConnections.delete(id)
+  sftpSessions.delete(id)
 })
 
 // ─── Local PTY Shell ─────────────────────────────────────────────────────────
@@ -561,6 +569,46 @@ ipcMain.handle('sftp:download', async (event, { id, remotePath, localPath }: { i
         doDownload(sftp)
       })
     }
+  })
+})
+
+// ─── SFTP Get Current Working Directory ────────────────────────────────────
+ipcMain.handle('sftp:getCwd', async (event, { id }: { id: string }) => {
+  const conn = sshConnections.get(id)
+  if (!conn) return '/'
+
+  // Method 1: Use /proc to read shell's cwd (Linux, no terminal artifacts)
+  const pidFile = `/tmp/.xxterm_pid_${id}`
+
+  const procCwd = await new Promise<string>((resolve) => {
+    conn.exec(`readlink /proc/$(cat ${pidFile} 2>/dev/null)/cwd 2>/dev/null`, (err, stream) => {
+      if (err) return resolve('')
+      let output = ''
+      stream.on('data', (data: Buffer) => { output += data.toString() })
+      stream.on('close', () => resolve(output.trim()))
+    })
+  })
+
+  if (procCwd && procCwd.startsWith('/')) return procCwd
+
+  // Method 2: Fallback - ask the interactive shell (with terminal cleanup)
+  const sshStream = sshStreams.get(id)
+  if (!sshStream) return '/'
+
+  const tmpFile = `/tmp/.xxterm_cwd_${id}`
+  sshStream.write(` stty -echo;pwd>${tmpFile};stty echo;printf '\\033[1A\\033[M'\n`)
+  await new Promise(r => setTimeout(r, 500))
+
+  return new Promise((resolve) => {
+    conn.exec(`cat ${tmpFile} 2>/dev/null;rm -f ${tmpFile}`, (err, execStream) => {
+      if (err) return resolve('/')
+      let output = ''
+      execStream.on('data', (data: Buffer) => { output += data.toString() })
+      execStream.on('close', () => {
+        const cwd = output.trim()
+        resolve(cwd && cwd.startsWith('/') ? cwd : '/')
+      })
+    })
   })
 })
 

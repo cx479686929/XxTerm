@@ -35,13 +35,7 @@ export default function MainArea() {
           ))}
         </div>
         {showFileManager && activeTabId && (
-          <FileManager
-            tabId={
-              tabs.find(t => t.id === activeTabId && t.type === 'sftp')
-                ? activeTabId
-                : tabs.find(t => t.type === 'sftp')?.id ?? activeTabId
-            }
-          />
+          <FileManager tabId={activeTabId} />
         )}
       </div>
     </div>

@@ -115,7 +115,6 @@ export default function TabBar() {
             style={{ background: tab.color ?? statusColor[tab.status] ?? '#7c3aed' }}
           />
           <span className="tab-title">
-            {tab.type === 'sftp' ? '📁 ' : ''}
             {tab.title}
           </span>
           <button
