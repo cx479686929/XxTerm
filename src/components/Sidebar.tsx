@@ -19,6 +19,7 @@ export default function Sidebar() {
     showFileManager,
     setShowFileManager,
     setShowMonitor,
+    setShowCommandPalette,
   } = useAppStore()
   const { toast } = useToast()
 
@@ -274,6 +275,10 @@ export default function Sidebar() {
           <button className="sidebar-action" onClick={() => setShowFileManager(!showFileManager)}>
             <span>📁</span>
             <span>文件管理器</span>
+          </button>
+          <button className="sidebar-action" onClick={() => setShowCommandPalette(true)}>
+            <span>⭐</span>
+            <span>命令收藏</span>
           </button>
           <button className="sidebar-action" onClick={() => setShowSettings(true)}>
             <span>⚙️</span>

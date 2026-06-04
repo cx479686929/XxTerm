@@ -1,6 +1,6 @@
 {
   "name": "xxterm",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "A beautiful cross-platform terminal with SSH and local terminal support",
   "main": "dist-electron/main.js",
   "scripts": {

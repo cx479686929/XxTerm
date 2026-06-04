@@ -78,3 +78,20 @@ export interface AppSettings {
   theme: ThemeId
   language: 'zh' | 'en'
 }
+
+// ─── Command Favorites ────────────────────────────────────────────────────────
+
+export interface FavoriteCommand {
+  id: string
+  command: string
+  note: string
+  category: string
+  createdAt: string
+  isBuiltin?: boolean
+}
+
+export interface BuiltinCommandGroup {
+  category: string
+  icon: string
+  commands: { command: string; desc: string }[]
+}

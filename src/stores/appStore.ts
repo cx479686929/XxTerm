@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ServerConfig, TabItem, AppSettings, ThemeId } from '../types'
+import type { ServerConfig, TabItem, AppSettings, ThemeId, FavoriteCommand } from '../types'
 import { themes } from '../themes'
 import { nanoid } from '../utils/nanoid'
 
@@ -56,6 +56,14 @@ interface AppStore {
   setEditServerId: (id: string | null) => void
   monitorTab: { tabId: string; serverName: string } | null
   setShowMonitor: (v: { tabId: string; serverName: string } | null) => void
+  showCommandPalette: boolean
+  setShowCommandPalette: (v: boolean) => void
+
+  // Command Favorites
+  favoriteCommands: FavoriteCommand[]
+  addFavoriteCommand: (cmd: Omit<FavoriteCommand, 'id' | 'createdAt'>) => void
+  updateFavoriteCommand: (id: string, updates: Partial<FavoriteCommand>) => void
+  deleteFavoriteCommand: (id: string) => void
 
   // Settings
   settings: AppSettings
@@ -137,6 +145,20 @@ export const useAppStore = create<AppStore>()(
       setEditServerId: (id) => set({ editServerId: id }),
       monitorTab: null,
       setShowMonitor: (v) => set({ monitorTab: v }),
+      showCommandPalette: false,
+      setShowCommandPalette: (v) => set({ showCommandPalette: v }),
+
+      favoriteCommands: [],
+      addFavoriteCommand: (cmd) =>
+        set(s => ({
+          favoriteCommands: [...s.favoriteCommands, { ...cmd, id: nanoid(), createdAt: new Date().toISOString() }]
+        })),
+      updateFavoriteCommand: (id, updates) =>
+        set(s => ({
+          favoriteCommands: s.favoriteCommands.map(c => c.id === id ? { ...c, ...updates } : c)
+        })),
+      deleteFavoriteCommand: (id) =>
+        set(s => ({ favoriteCommands: s.favoriteCommands.filter(c => c.id !== id) })),
 
       settings: defaultSettings,
       updateSettings: (updates) =>
@@ -179,6 +201,7 @@ export const useAppStore = create<AppStore>()(
         servers: state.servers,
         settings: state.settings,
         sidebarWidth: state.sidebarWidth,
+        favoriteCommands: state.favoriteCommands,
       }),
     }
   )
