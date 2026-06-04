@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { TabItem } from '../types'
 import { useAppStore } from '../stores/appStore'
 import { themes } from '../themes'
+import { useI18n } from '../i18n'
 
 interface Props {
   tab: TabItem
@@ -15,6 +16,7 @@ export default function TerminalPane({ tab }: Props) {
   const fitAddonRef = useRef<any>(null)
   const shellStartedRef = useRef(false)
   const { settings, updateTab, activeTabId } = useAppStore()
+  const { t } = useI18n()
 
   const local = isLocal(tab)
 
@@ -81,19 +83,19 @@ export default function TerminalPane({ tab }: Props) {
         if (currentTab?.status === 'connected') {
           doStartShell(term, fitAddon)
         } else if (currentTab?.status === 'connecting') {
-          term.write('\r\n  \x1b[33m⏳ 正在连接...\x1b[0m\r\n')
+          term.write(`\r\n  \x1b[33m⏳ ${t('terminal.connecting')}\x1b[0m\r\n`)
           // Poll until errored — shell start is handled by the tab.status effect below
           pollInterval = setInterval(() => {
-            const t = useAppStore.getState().tabs.find(t => t.id === tab.id)
-            if (t?.status !== 'connecting') {
+            const tabState = useAppStore.getState().tabs.find(tb => tb.id === tab.id)
+            if (tabState?.status !== 'connecting') {
               clearInterval(pollInterval)
-              if (t?.status === 'error') {
-                term.write('\r\n  \x1b[31m✗ 连接失败\x1b[0m\r\n')
+              if (tabState?.status === 'error') {
+                term.write(`\r\n  \x1b[31m✗ ${t('terminal.connectFailed')}\x1b[0m\r\n`)
               }
             }
           }, 200)
         } else if (currentTab?.status === 'error') {
-          term.write('\r\n  \x1b[31m✗ 连接失败\x1b[0m\r\n')
+          term.write(`\r\n  \x1b[31m✗ ${t('terminal.connectFailed')}\x1b[0m\r\n`)
         }
       }
     })()
@@ -202,7 +204,7 @@ export default function TerminalPane({ tab }: Props) {
           })
 
           const unsubClose = window.electron?.onLocalClose(tab.id, () => {
-            term.write('\r\n\x1b[33m终端已关闭\x1b[0m\r\n')
+            term.write(`\r\n\x1b[33m${t('terminal.terminalClosed')}\x1b[0m\r\n`)
             updateTab(tab.id, { status: 'disconnected' })
             unsubData?.()
           })
@@ -216,7 +218,7 @@ export default function TerminalPane({ tab }: Props) {
           })
 
           const unsubClose = window.electron?.onSshClose(tab.id, () => {
-            term.write('\r\n\x1b[33m连接已关闭\x1b[0m\r\n')
+            term.write(`\r\n\x1b[33m${t('terminal.connectionClosed')}\x1b[0m\r\n`)
             updateTab(tab.id, { status: 'disconnected' })
             unsubData?.()
           })
@@ -250,7 +252,7 @@ export default function TerminalPane({ tab }: Props) {
           }, 500)
         }
       } catch (err: any) {
-        term.write(`\r\n\x1b[31mShell 启动失败: ${err?.message ?? '未知错误'}\x1b[0m\r\n`)
+        term.write(`\r\n\x1b[31m${t('terminal.shellStartFailed', { error: err?.message ?? 'Unknown' })}\x1b[0m\r\n`)
       }
     })()
   }
@@ -287,8 +289,8 @@ export default function TerminalPane({ tab }: Props) {
             borderTopColor: 'var(--accent)',
             animation: 'spin 0.8s linear infinite',
           }} />
-          <div style={{ fontSize: 14, fontWeight: 500 }}>正在连接到 {tab.serverHost}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>建立 SSH 连接中...</div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{t('terminal.connectedTo', { host: tab.serverHost })}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('terminal.establishingSSH')}</div>
         </div>
       )}
     </div>

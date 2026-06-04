@@ -1,9 +1,11 @@
 import { useAppStore } from '../stores/appStore'
 import type { TabItem } from '../types'
 import { useEffect, useRef } from 'react'
+import { useI18n } from '../i18n'
 
 export default function TabBar() {
   const { tabs, activeTabId, setActiveTab, removeTab, addTab, updateTab, servers } = useAppStore()
+  const { t } = useI18n()
 
   const clickTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingClickTabId = useRef<string | null>(null)
@@ -37,9 +39,9 @@ export default function TabBar() {
     }
 
     // Strip existing "(N)" suffix to get base title
-    const baseTitle = tab.title.replace(/\s*\(\d+\)$/, '')
+    const baseTitle = (tab.type === 'local' ? t('terminal.localTerminal') : tab.title).replace(/\s*\(\d+\)$/, '')
     // Count existing tabs with same base title
-    const sameCount = tabs.filter(t => t.title.replace(/\s*\(\d+\)$/, '') === baseTitle).length
+    const sameCount = tabs.filter(tb => (tb.type === 'local' ? t('terminal.localTerminal') : tb.title).replace(/\s*\(\d+\)$/, '') === baseTitle).length
     const newTitle = sameCount > 0 ? `${baseTitle} (${sameCount + 1})` : baseTitle
 
     const newTab = {
@@ -108,14 +110,14 @@ export default function TabBar() {
           className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
           onClick={() => handleClick(tab)}
           onDoubleClick={() => handleDoubleClick(tab)}
-          title="单击切换，双击复制标签"
+          title={t('terminal.tab.tooltip')}
         >
           <span
             className={`tab-dot ${tab.status === 'connecting' ? 'connecting' : ''}`}
             style={{ background: tab.color ?? statusColor[tab.status] ?? '#7c3aed' }}
           />
           <span className="tab-title">
-            {tab.title}
+            {tab.type === 'local' ? t('terminal.localTerminal') : tab.title}
           </span>
           <button
             className="tab-close"

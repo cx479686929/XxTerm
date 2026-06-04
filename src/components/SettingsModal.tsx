@@ -2,9 +2,11 @@ import { useAppStore } from '../stores/appStore'
 import { themes } from '../themes'
 import type { ThemeId } from '../types'
 import { useState, useEffect } from 'react'
+import { useI18n } from '../i18n'
 
 export default function SettingsModal() {
   const { showSettings, setShowSettings, settings, updateSettings, setTheme } = useAppStore()
+  const { t } = useI18n()
   const [appVersion, setAppVersion] = useState('')
 
   useEffect(() => {
@@ -31,14 +33,14 @@ export default function SettingsModal() {
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <span className="modal-title">⚙️ 设置</span>
+          <span className="modal-title">{t('settings.title')}</span>
           <button className="icon-btn" onClick={() => setShowSettings(false)}>✕</button>
         </div>
 
         <div className="settings-panel">
           {/* Themes */}
           <div className="settings-section">
-            <div className="settings-section-title">主题</div>
+            <div className="settings-section-title">{t('settings.section.theme')}</div>
             <div className="theme-grid">
               {Object.values(themes).map(theme => (
                 <div
@@ -70,12 +72,12 @@ export default function SettingsModal() {
 
           {/* Font */}
           <div className="settings-section">
-            <div className="settings-section-title">字体</div>
+            <div className="settings-section-title">{t('settings.section.font')}</div>
 
             <div className="settings-row">
               <div>
-                <div className="settings-label">字体</div>
-                <div className="settings-desc">终端字体系列</div>
+                <div className="settings-label">{t('settings.font.label')}</div>
+                <div className="settings-desc">{t('settings.font.desc')}</div>
               </div>
               <select
                 className="form-input form-select"
@@ -91,8 +93,8 @@ export default function SettingsModal() {
 
             <div className="settings-row">
               <div>
-                <div className="settings-label">字体大小</div>
-                <div className="settings-desc">当前: {settings.fontSize}px</div>
+                <div className="settings-label">{t('settings.fontSize.label')}</div>
+                <div className="settings-desc">{t('settings.fontSize.current', { size: settings.fontSize })}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input
@@ -110,11 +112,11 @@ export default function SettingsModal() {
 
           {/* Terminal */}
           <div className="settings-section">
-            <div className="settings-section-title">终端</div>
+            <div className="settings-section-title">{t('settings.section.terminal')}</div>
 
             <div className="settings-row">
               <div>
-                <div className="settings-label">光标样式</div>
+                <div className="settings-label">{t('settings.cursorStyle.label')}</div>
               </div>
               <select
                 className="form-input form-select"
@@ -122,15 +124,15 @@ export default function SettingsModal() {
                 value={settings.cursorStyle}
                 onChange={e => updateSettings({ cursorStyle: e.target.value as any })}
               >
-                <option value="block">方块</option>
-                <option value="underline">下划线</option>
-                <option value="bar">光标条</option>
+                <option value="block">{t('settings.cursorStyle.block')}</option>
+                <option value="underline">{t('settings.cursorStyle.underline')}</option>
+                <option value="bar">{t('settings.cursorStyle.bar')}</option>
               </select>
             </div>
 
             <div className="settings-row">
               <div>
-                <div className="settings-label">光标闪烁</div>
+                <div className="settings-label">{t('settings.cursorBlink.label')}</div>
               </div>
               <label className="toggle">
                 <input
@@ -144,8 +146,8 @@ export default function SettingsModal() {
 
             <div className="settings-row">
               <div>
-                <div className="settings-label">回滚行数</div>
-                <div className="settings-desc">终端历史缓存</div>
+                <div className="settings-label">{t('settings.scrollback.label')}</div>
+                <div className="settings-desc">{t('settings.scrollback.desc')}</div>
               </div>
               <select
                 className="form-input form-select"
@@ -161,9 +163,29 @@ export default function SettingsModal() {
             </div>
           </div>
 
+          {/* Language */}
+          <div className="settings-section">
+            <div className="settings-section-title">{t('settings.section.language')}</div>
+            <div className="settings-row">
+              <div>
+                <div className="settings-label">{t('settings.language.label')}</div>
+                <div className="settings-desc">{t('settings.language.desc')}</div>
+              </div>
+              <select
+                className="form-input form-select"
+                style={{ width: 140 }}
+                value={settings.language}
+                onChange={e => updateSettings({ language: e.target.value as 'zh' | 'en' })}
+              >
+                <option value="zh">{t('settings.language.zh')}</option>
+                <option value="en">{t('settings.language.en')}</option>
+              </select>
+            </div>
+          </div>
+
           {/* About */}
           <div className="settings-section">
-            <div className="settings-section-title">关于</div>
+            <div className="settings-section-title">{t('settings.section.about')}</div>
             <div style={{
               padding: '16px',
               display: 'flex',
@@ -186,9 +208,9 @@ export default function SettingsModal() {
               }}>⚡</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>XxTerm</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{appVersion || '1.1.0'} · 跨平台 SSH 终端工具</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{appVersion || '1.1.0'} · {t('settings.about.desc')}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  Electron + React + xterm.js · SSH2
+                  {t('settings.about.tech')}
                 </div>
               </div>
             </div>

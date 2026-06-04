@@ -1,4 +1,5 @@
 import { useAppStore } from '../stores/appStore'
+import { useI18n } from '../i18n'
 
 interface Props {
   onClick?: () => void
@@ -6,35 +7,36 @@ interface Props {
 
 export default function WelcomeScreen({ onClick }: Props) {
   const { setShowAddServer, servers } = useAppStore()
+  const { t } = useI18n()
 
   return (
     <div className="welcome-screen">
       <div className="welcome-logo">⚡</div>
       <div className="welcome-title">XxTerm</div>
       <div className="welcome-subtitle">
-        跨平台 SSH 终端工具 · 优雅、高效、开箱即用
+        {t('welcome.subtitle')}
       </div>
 
       <div className="welcome-shortcuts">
         <div className="shortcut-card" onClick={() => setShowAddServer(true)}>
           <div className="shortcut-icon">＋</div>
-          <div className="shortcut-label">新建连接</div>
-          <div className="shortcut-desc">添加 SSH 服务器</div>
+          <div className="shortcut-label">{t('welcome.newConnection')}</div>
+          <div className="shortcut-desc">{t('welcome.newConnection.desc')}</div>
         </div>
         <div className="shortcut-card" onClick={() => setShowAddServer(true)}>
           <div className="shortcut-icon">🔑</div>
-          <div className="shortcut-label">密钥认证</div>
-          <div className="shortcut-desc">支持私钥登录</div>
+          <div className="shortcut-label">{t('welcome.keyAuth')}</div>
+          <div className="shortcut-desc">{t('welcome.keyAuth.desc')}</div>
         </div>
         <div className="shortcut-card">
           <div className="shortcut-icon">📁</div>
-          <div className="shortcut-label">文件管理</div>
-          <div className="shortcut-desc">SFTP 文件浏览</div>
+          <div className="shortcut-label">{t('welcome.fileManager')}</div>
+          <div className="shortcut-desc">{t('welcome.fileManager.desc')}</div>
         </div>
         <div className="shortcut-card">
           <div className="shortcut-icon">🎨</div>
-          <div className="shortcut-label">多彩主题</div>
-          <div className="shortcut-desc">6 款精美主题</div>
+          <div className="shortcut-label">{t('welcome.themes')}</div>
+          <div className="shortcut-desc">{t('welcome.themes.desc')}</div>
         </div>
       </div>
 
@@ -44,7 +46,7 @@ export default function WelcomeScreen({ onClick }: Props) {
           fontSize: 12,
           color: 'var(--text-muted)',
         }}>
-          {servers.length} 台服务器已配置 · 在左侧列表点击连接
+          {t('welcome.serversCount', { count: servers.length })}
         </div>
       )}
     </div>

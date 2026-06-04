@@ -3,6 +3,7 @@ import type { FileItem } from '../types'
 import { useAppStore } from '../stores/appStore'
 import { formatFileSize, formatDate, getFileIcon } from '../utils/helpers'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 
 interface TransferProgress {
   type: 'upload' | 'download'
@@ -19,6 +20,7 @@ interface Props {
 export default function FileManager({ tabId }: Props) {
   const { setShowFileManager, tabs } = useAppStore()
   const { toast } = useToast()
+  const { t } = useI18n()
   const tab = tabs.find(t => t.id === tabId)
   const isConnected = tab?.status === 'connected'
   const isLocal = tab?.type === 'local'
@@ -49,7 +51,7 @@ export default function FileManager({ tabId }: Props) {
         setPath(p)
       }
     } catch (err: any) {
-      toast('error', `加载目录失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.loadDir', { error: err?.message ?? err }))
     } finally {
       setLoading(false)
     }
@@ -118,7 +120,7 @@ export default function FileManager({ tabId }: Props) {
 
   const openFile = async (file: FileItem) => {
     if (!isConnected) {
-      toast('warning', 'SSH 连接尚未建立')
+      toast('warning', t('fileManager.error.sshNotConnected'))
       return
     }
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -128,14 +130,14 @@ export default function FileManager({ tabId }: Props) {
         const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
         setPreviewImage({ path: file.path, dataUrl: `data:${mime};base64,${base64}` })
       } catch (err: any) {
-        toast('error', `无法预览图片: ${err?.message ?? err}`)
+        toast('error', t('fileManager.error.previewImage', { error: err?.message ?? err }))
       }
     } else {
       try {
         const content = await window.electron?.sftpReadFile({ id: tabId, path: file.path })
         setEditingFile({ path: file.path, content })
       } catch (err: any) {
-        toast('error', `无法读取文件: ${err?.message ?? err}`)
+        toast('error', t('fileManager.error.readFile', { error: err?.message ?? err }))
       }
     }
   }
@@ -144,21 +146,21 @@ export default function FileManager({ tabId }: Props) {
     if (!editingFile) return
     try {
       await window.electron?.sftpWriteFile({ id: tabId, path: editingFile.path, content: editingFile.content })
-      toast('success', '文件已保存')
+      toast('success', t('fileManager.success.saved'))
       setEditingFile(null)
     } catch (err: any) {
-      toast('error', `保存失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.saveFailed', { error: err?.message ?? err }))
     }
   }
 
   const deleteFile = async (file: FileItem) => {
-    if (!confirm(`确定要删除 "${file.name}" 吗？`)) return
+    if (!confirm(t('fileManager.confirm.delete', { name: file.name }))) return
     try {
       await window.electron?.sftpDelete({ id: tabId, path: file.path, isDir: file.isDirectory })
-      toast('success', `已删除 ${file.name}`)
+      toast('success', t('fileManager.success.deleted', { name: file.name }))
       loadDir(path)
     } catch (err: any) {
-      toast('error', `删除失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.deleteFailed', { error: err?.message ?? err }))
     }
   }
 
@@ -167,12 +169,12 @@ export default function FileManager({ tabId }: Props) {
     const newPath = `${path}/${newFolderName}`.replace(/\/\//g, '/')
     try {
       await window.electron?.sftpMkdir({ id: tabId, path: newPath })
-      toast('success', `文件夹 "${newFolderName}" 已创建`)
+      toast('success', t('fileManager.success.folderCreated', { name: newFolderName }))
       setNewFolderName('')
       setShowNewFolder(false)
       loadDir(path)
     } catch (err: any) {
-      toast('error', `创建失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.createFailed', { error: err?.message ?? err }))
     }
   }
 
@@ -197,12 +199,12 @@ export default function FileManager({ tabId }: Props) {
 
   const uploadFile = async () => {
     if (!isConnected) {
-      toast('warning', 'SSH 连接尚未建立')
+      toast('warning', t('fileManager.error.sshNotConnected'))
       return
     }
     try {
       const result = await window.electron?.showOpenDialog({
-        title: '选择要上传的文件',
+        title: t('fileManager.dialog.openFile'),
         properties: ['openFile'],
       })
       if (result?.canceled || !result?.filePaths?.length) return
@@ -211,32 +213,32 @@ export default function FileManager({ tabId }: Props) {
       const remotePath = `${path}/${fileName}`.replace(/\/\//g, '/')
       setTransfer({ type: 'upload', fileName: fileName ?? '', transferred: 0, total: 0, percent: 0 })
       await window.electron?.sftpUpload({ id: tabId, localPath, remotePath })
-      toast('success', `文件 "${fileName}" 上传成功`)
+      toast('success', t('fileManager.success.uploaded', { name: fileName }))
       loadDir(path)
     } catch (err: any) {
       setTransfer(null)
-      toast('error', `上传失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.uploadFailed', { error: err?.message ?? err }))
     }
   }
 
   const downloadFile = async (file: FileItem) => {
     if (!isConnected) {
-      toast('warning', 'SSH 连接尚未建立')
+      toast('warning', t('fileManager.error.sshNotConnected'))
       return
     }
     try {
       const result = await window.electron?.showSaveDialog({
-        title: '选择保存位置',
+        title: t('fileManager.dialog.saveFile'),
         defaultPath: file.name,
       })
       if (result?.canceled || !result?.filePath) return
       const localPath = result.filePath
       setTransfer({ type: 'download', fileName: file.name, transferred: 0, total: file.size, percent: 0 })
       await window.electron?.sftpDownload({ id: tabId, remotePath: file.path, localPath })
-      toast('success', `文件 "${file.name}" 下载成功`)
+      toast('success', t('fileManager.success.downloaded', { name: file.name }))
     } catch (err: any) {
       setTransfer(null)
-      toast('error', `下载失败: ${err?.message ?? err}`)
+      toast('error', t('fileManager.error.downloadFailed', { error: err?.message ?? err }))
     }
   }
 
@@ -248,38 +250,38 @@ export default function FileManager({ tabId }: Props) {
       >
         <div className="file-manager-header">
           <div className="file-manager-title">
-            <span>文件管理器</span>
+            <span>{t('fileManager.title')}</span>
             <div style={{ display: 'flex', gap: 4 }}>
               <button
                 className="icon-btn"
                 onClick={uploadFile}
-                data-tooltip="上传文件"
+                data-tooltip={t('fileManager.tooltip.upload')}
                 data-tooltip-below
               >⬆️</button>
               <button
                 className="icon-btn"
                 onClick={() => loadDir(path)}
-                data-tooltip="刷新"
+                data-tooltip={t('fileManager.tooltip.refresh')}
                 data-tooltip-below
               >🔄</button>
               {!isLocal && (
                 <button
                   className="icon-btn"
                   onClick={syncCwd}
-                  data-tooltip="同步终端路径"
+                  data-tooltip={t('fileManager.tooltip.syncCwd')}
                   data-tooltip-below
                 >🔗</button>
               )}
               <button
                 className="icon-btn"
                 onClick={() => setShowNewFolder(true)}
-                data-tooltip="新建文件夹"
+                data-tooltip={t('fileManager.tooltip.newFolder')}
                 data-tooltip-below
               >📁+</button>
               <button
                 className="icon-btn"
                 onClick={() => setShowFileManager(false)}
-                data-tooltip="关闭"
+                data-tooltip={t('fileManager.tooltip.close')}
                 data-tooltip-below
               >✕</button>
             </div>
@@ -311,7 +313,7 @@ export default function FileManager({ tabId }: Props) {
               className="btn btn-secondary btn-sm"
               onClick={goBack}
               disabled={pathHistory.length <= 1}
-            >← 返回</button>
+            >{t('fileManager.btn.back')}</button>
           </div>
         </div>
 
@@ -320,15 +322,15 @@ export default function FileManager({ tabId }: Props) {
             <div style={{ display: 'flex', gap: 6 }}>
               <input
                 className="form-input"
-                placeholder="文件夹名称"
+                placeholder={t('fileManager.placeholder.folderName')}
                 value={newFolderName}
                 onChange={e => setNewFolderName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createFolder()}
                 autoFocus
                 style={{ flex: 1 }}
               />
-              <button className="btn btn-primary btn-sm" onClick={createFolder}>创建</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setShowNewFolder(false); setNewFolderName('') }}>取消</button>
+              <button className="btn btn-primary btn-sm" onClick={createFolder}>{t('fileManager.btn.create')}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setShowNewFolder(false); setNewFolderName('') }}>{t('fileManager.btn.cancel')}</button>
             </div>
           </div>
         )}
@@ -350,12 +352,12 @@ export default function FileManager({ tabId }: Props) {
           {isLocal ? (
             <div className="empty-state">
               <div className="empty-state-icon">💻</div>
-              <div className="empty-state-text">当前为本地终端<br />请切换到 SSH 标签页使用文件管理</div>
+              <div className="empty-state-text">{t('fileManager.empty.local').replace('\\n', '\n')}</div>
             </div>
           ) : !isConnected ? (
             <div className="empty-state">
               <div className="empty-state-icon">⏳</div>
-              <div className="empty-state-text">等待 SSH 连接建立...</div>
+              <div className="empty-state-text">{t('fileManager.empty.waiting')}</div>
             </div>
           ) : loading ? (
             <div style={{ padding: 20, display: 'flex', justifyContent: 'center' }}>
@@ -364,7 +366,7 @@ export default function FileManager({ tabId }: Props) {
           ) : files.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📭</div>
-              <div className="empty-state-text">目录为空</div>
+              <div className="empty-state-text">{t('fileManager.empty.dir')}</div>
             </div>
           ) : (
             files.map(file => (
@@ -379,7 +381,7 @@ export default function FileManager({ tabId }: Props) {
                 <div className="file-info">
                   <div className="file-name">{file.name}</div>
                   <div className="file-meta">
-                    {file.isDirectory ? '目录' : formatFileSize(file.size)} · {formatDate(file.modified)}
+                    {file.isDirectory ? t('common.directory') : formatFileSize(file.size)} · {formatDate(file.modified)}
                   </div>
                 </div>
               </div>
@@ -400,7 +402,7 @@ export default function FileManager({ tabId }: Props) {
               openFile(contextMenu.file)
               setContextMenu(null)
             }}>
-              📝 编辑
+              {t('fileManager.context.edit')}
             </div>
           )}
           {!contextMenu.file.isDirectory && (
@@ -408,7 +410,7 @@ export default function FileManager({ tabId }: Props) {
               downloadFile(contextMenu.file)
               setContextMenu(null)
             }}>
-              ⬇️ 下载
+              {t('fileManager.context.download')}
             </div>
           )}
           {contextMenu.file.isDirectory && (
@@ -416,7 +418,7 @@ export default function FileManager({ tabId }: Props) {
               navigate(contextMenu.file.path)
               setContextMenu(null)
             }}>
-              📂 打开
+              {t('fileManager.context.open')}
             </div>
           )}
           <div className="context-menu-sep" />
@@ -424,7 +426,7 @@ export default function FileManager({ tabId }: Props) {
             deleteFile(contextMenu.file)
             setContextMenu(null)
           }}>
-            🗑️ 删除
+            {t('common.delete')}
           </div>
         </div>
       )}
@@ -450,8 +452,8 @@ export default function FileManager({ tabId }: Props) {
               />
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setEditingFile(null)}>取消</button>
-              <button className="btn btn-primary" onClick={saveFile}>💾 保存</button>
+              <button className="btn btn-secondary" onClick={() => setEditingFile(null)}>{t('common.cancel')}</button>
+              <button className="btn btn-primary" onClick={saveFile}>{t('fileManager.btn.save')}</button>
             </div>
           </div>
         </div>

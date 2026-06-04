@@ -1,11 +1,26 @@
+import { useEffect } from 'react'
 import { useAppStore } from '../stores/appStore'
+import { useI18n } from '../i18n'
 import TabBar from './TabBar'
 import TerminalPane from './TerminalPane'
 import FileManager from './FileManager'
 import WelcomeScreen from './WelcomeScreen'
 
 export default function MainArea() {
-  const { tabs, activeTabId, showFileManager } = useAppStore()
+  const { tabs, activeTabId, showFileManager, updateTab } = useAppStore()
+  const { t, locale } = useI18n()
+
+  // When language changes, update local terminal tab titles
+  useEffect(() => {
+    tabs.forEach(tab => {
+      if (tab.type === 'local') {
+        const localTitle = t('terminal.localTerminal')
+        if (tab.title !== localTitle || tab.serverName !== localTitle) {
+          updateTab(tab.id, { title: localTitle, serverName: localTitle })
+        }
+      }
+    })
+  }, [locale])
 
   if (tabs.length === 0) {
     return (

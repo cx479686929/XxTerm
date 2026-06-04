@@ -1,7 +1,9 @@
 import { useAppStore } from '../stores/appStore'
+import { useI18n } from '../i18n'
 
 export default function Titlebar() {
   const { tabs, activeTabId, setShowSettings } = useAppStore()
+  const { t } = useI18n()
   const activeTab = tabs.find(t => t.id === activeTabId)
 
   return (
@@ -33,7 +35,7 @@ export default function Titlebar() {
         <button
           className="icon-btn"
           onClick={() => setShowSettings(true)}
-          data-tooltip="设置"
+          data-tooltip={t('common.settings')}
           style={{ fontSize: 13 }}
         >
           ⚙

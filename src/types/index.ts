@@ -92,6 +92,7 @@ export interface FavoriteCommand {
 
 export interface BuiltinCommandGroup {
   category: string
+  categoryKey?: string
   icon: string
-  commands: { command: string; desc: string }[]
+  commands: { command: string; desc: string; descKey?: string }[]
 }

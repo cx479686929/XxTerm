@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useAppStore, applyTheme } from './stores/appStore'
+import { I18nProvider } from './i18n'
 import Titlebar from './components/Titlebar'
 import Sidebar from './components/Sidebar'
 import MainArea from './components/MainArea'
@@ -31,17 +32,19 @@ export default function App() {
   }, [setShowCommandPalette])
 
   return (
-    <div className="app-container">
-      <Titlebar />
-      <div className="app-body">
-        <Sidebar />
-        <MainArea />
+    <I18nProvider locale={settings.language}>
+      <div className="app-container">
+        <Titlebar />
+        <div className="app-body">
+          <Sidebar />
+          <MainArea />
+        </div>
+        <AddServerModal />
+        <SettingsModal />
+        {monitorTab && <SystemMonitor tabId={monitorTab.tabId} serverName={monitorTab.serverName} />}
+        <CommandPalette />
+        <ToastContainer />
       </div>
-      <AddServerModal />
-      <SettingsModal />
-      {monitorTab && <SystemMonitor tabId={monitorTab.tabId} serverName={monitorTab.serverName} />}
-      <CommandPalette />
-      <ToastContainer />
-    </div>
+    </I18nProvider>
   )
 }

@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore'
 import { builtinCommandGroups, toFavorite } from '../data/builtinCommands'
 import type { FavoriteCommand } from '../types'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 
 type Tab = 'favorites' | 'builtin'
 
@@ -18,6 +19,7 @@ export default function CommandPalette() {
     activeTabId,
   } = useAppStore()
   const { toast } = useToast()
+  const { t } = useI18n()
 
   const [tab, setTab] = useState<Tab>('favorites')
   const [search, setSearch] = useState('')
@@ -80,19 +82,21 @@ export default function CommandPalette() {
     return builtinCommandGroups
       .map(g => ({
         ...g,
+        translatedCategory: g.categoryKey ? t(g.categoryKey) : `${g.icon} ${g.category}`,
         commands: g.commands.filter(c =>
-          c.command.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
+          c.command.toLowerCase().includes(q) ||
+          (c.descKey ? t(c.descKey) : c.desc).toLowerCase().includes(q)
         ),
       }))
       .filter(g => g.commands.length > 0)
-  }, [search])
+  }, [search, t])
 
   // Flat builtin list for navigation
   const flatBuiltin = useMemo(() => {
-    const items: { command: string; desc: string; category: string; icon: string }[] = []
+    const items: { command: string; desc: string; descKey?: string; category: string; categoryKey?: string; icon: string }[] = []
     for (const g of filteredBuiltin) {
       for (const c of g.commands) {
-        items.push({ ...c, category: g.category, icon: g.icon })
+        items.push({ ...c, category: g.category, categoryKey: g.categoryKey, icon: g.icon })
       }
     }
     return items
@@ -105,7 +109,7 @@ export default function CommandPalette() {
   // Execute command on the active terminal
   const executeCommand = useCallback((command: string) => {
     if (!activeTab) {
-      toast('warning', '请先打开一个终端标签页')
+      toast('warning', t('commandPalette.warning.noTerminal'))
       return
     }
     const isLocal = activeTab.type === 'local'
@@ -115,13 +119,13 @@ export default function CommandPalette() {
       window.electron?.sshWrite({ id: activeTab.id, data: command + '\n' })
     }
     setShowCommandPalette(false)
-    toast('success', `已执行: ${command.length > 40 ? command.slice(0, 40) + '...' : command}`)
+    toast('success', t('commandPalette.success.executed', { command: command.length > 40 ? command.slice(0, 40) + '...' : command }))
   }, [activeTab, toast, setShowCommandPalette])
 
   // Copy command to clipboard and paste into terminal
   const copyAndPaste = useCallback((command: string) => {
     if (!activeTab) {
-      toast('warning', '请先打开一个终端标签页')
+      toast('warning', t('commandPalette.warning.noTerminal'))
       return
     }
     const isLocal = activeTab.type === 'local'
@@ -135,20 +139,20 @@ export default function CommandPalette() {
   }, [activeTab, toast, setShowCommandPalette])
 
   // Add builtin to favorites
-  const addBuiltinToFavorites = useCallback((cmd: { command: string; desc: string }, category: string, icon: string) => {
-    const fav = toFavorite(cmd, category, icon)
+  const addBuiltinToFavorites = useCallback((cmd: { command: string; desc: string; descKey?: string }, category: string, categoryKey: string | undefined, icon: string) => {
+    const fav = toFavorite(cmd, category, categoryKey, icon, t)
     addFavoriteCommand({ command: fav.command, note: fav.note, category: fav.category, isBuiltin: true })
-    toast('success', `已收藏: ${cmd.command}`)
-  }, [addFavoriteCommand, toast])
+    toast('success', t('commandPalette.success.favorited', { command: cmd.command }))
+  }, [addFavoriteCommand, toast, t])
 
   // Add custom command
   const handleAddCustom = useCallback(() => {
     const trimmed = addText.trim()
     if (!trimmed) return
-    addFavoriteCommand({ command: trimmed, note: '', category: '⭐ 自定义', isBuiltin: false })
+    addFavoriteCommand({ command: trimmed, note: '', category: t('commandPalette.category.custom'), isBuiltin: false })
     setAddText('')
     setShowAddForm(false)
-    toast('success', `已收藏: ${trimmed}`)
+    toast('success', t('commandPalette.success.favorited', { command: trimmed }))
   }, [addText, addFavoriteCommand, toast])
 
   // Save editing
@@ -199,13 +203,13 @@ export default function CommandPalette() {
               className={`cp-tab ${tab === 'favorites' ? 'active' : ''}`}
               onClick={() => setTab('favorites')}
             >
-              ⭐ 我的收藏
+              {t('commandPalette.tab.favorites')}
             </button>
             <button
               className={`cp-tab ${tab === 'builtin' ? 'active' : ''}`}
               onClick={() => setTab('builtin')}
             >
-              📚 命令库
+              {t('commandPalette.tab.builtin')}
             </button>
           </div>
           <button className="cp-close" onClick={() => setShowCommandPalette(false)}>✕</button>
@@ -216,7 +220,7 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             className="cp-search"
-            placeholder={tab === 'favorites' ? '搜索收藏的命令...' : '搜索命令库...'}
+            placeholder={tab === 'favorites' ? t('commandPalette.search.favorites') : t('commandPalette.search.builtin')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -225,7 +229,7 @@ export default function CommandPalette() {
               className="cp-add-btn"
               onClick={() => setShowAddForm(!showAddForm)}
             >
-              {showAddForm ? '取消' : '＋ 添加'}
+              {showAddForm ? t('common.cancel') : t('commandPalette.btn.add')}
             </button>
           )}
         </div>
@@ -235,13 +239,13 @@ export default function CommandPalette() {
           <div className="cp-add-form">
             <input
               className="cp-input"
-              placeholder="输入要收藏的命令..."
+              placeholder={t('commandPalette.placeholder.command')}
               value={addText}
               onChange={e => setAddText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddCustom() }}
               autoFocus
             />
-            <button className="cp-confirm-btn" onClick={handleAddCustom}>收藏</button>
+            <button className="cp-confirm-btn" onClick={handleAddCustom}>{t('commandPalette.btn.favorite')}</button>
           </div>
         )}
 
@@ -250,20 +254,20 @@ export default function CommandPalette() {
           <div className="cp-edit-form">
             <input
               className="cp-input"
-              placeholder="分类（如：⭐ 自定义）"
+              placeholder={t('commandPalette.placeholder.category')}
               value={editCategory}
               onChange={e => setEditCategory(e.target.value)}
             />
             <input
               className="cp-input"
-              placeholder="备注说明..."
+              placeholder={t('commandPalette.placeholder.note')}
               value={editNote}
               onChange={e => setEditNote(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(editingId) }}
             />
             <div className="cp-edit-actions">
-              <button className="cp-confirm-btn" onClick={() => handleSaveEdit(editingId)}>保存</button>
-              <button className="cp-cancel-btn" onClick={() => setEditingId(null)}>取消</button>
+              <button className="cp-confirm-btn" onClick={() => handleSaveEdit(editingId)}>{t('commandPalette.btn.save')}</button>
+              <button className="cp-cancel-btn" onClick={() => setEditingId(null)}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -274,9 +278,9 @@ export default function CommandPalette() {
             filteredFavorites.length === 0 ? (
               <div className="cp-empty">
                 <div style={{ fontSize: 32 }}>{search ? '🔍' : '⭐'}</div>
-                <div>{search ? '没有匹配的收藏命令' : '还没有收藏命令'}</div>
+                <div>{search ? t('commandPalette.empty.noMatch') : t('commandPalette.empty.noFavorites')}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  点击「＋ 添加」手动收藏，或从命令库一键收藏
+                  {t('commandPalette.empty.hint')}
                 </div>
               </div>
             ) : (
@@ -296,12 +300,12 @@ export default function CommandPalette() {
                     <div className="cp-item-actions" onClick={e => e.stopPropagation()}>
                       <button
                         className="cp-action-btn"
-                        data-tooltip="粘贴到终端"
+                        data-tooltip={t('common.pasteToTerminal')}
                         onClick={() => copyAndPaste(cmd.command)}
                       >📋</button>
                       <button
                         className="cp-action-btn"
-                        data-tooltip="编辑备注与分类"
+                        data-tooltip={t('commandPalette.tooltip.edit')}
                         onClick={() => {
                           setEditingId(cmd.id)
                           setEditNote(cmd.note)
@@ -310,10 +314,10 @@ export default function CommandPalette() {
                       >✏️</button>
                       <button
                         className="cp-action-btn danger"
-                        data-tooltip="删除收藏"
+                        data-tooltip={t('commandPalette.tooltip.deleteFavorite')}
                         onClick={() => {
                           deleteFavoriteCommand(cmd.id)
-                          toast('info', `已删除: ${cmd.command}`)
+                          toast('info', t('commandPalette.info.deleted', { command: cmd.command }))
                         }}
                       >🗑️</button>
                     </div>
@@ -325,14 +329,14 @@ export default function CommandPalette() {
             flatBuiltin.length === 0 ? (
               <div className="cp-empty">
                 <div style={{ fontSize: 32 }}>🔍</div>
-                <div>没有匹配的命令</div>
+                <div>{t('commandPalette.empty.noMatchBuiltin')}</div>
               </div>
             ) : (
               <div className="cp-list">
                 {filteredBuiltin.map(group => (
                   <div key={group.category}>
                     <div className="cp-group-header">
-                      {group.icon} {group.category}
+                      {group.icon} {group.translatedCategory}
                     </div>
                     {group.commands.map((cmd) => {
                       const flatIdx = flatBuiltin.findIndex(
@@ -348,18 +352,18 @@ export default function CommandPalette() {
                         >
                           <div className="cp-item-main">
                             <code className="cp-item-cmd">{cmd.command}</code>
-                            <span className="cp-item-desc">{cmd.desc}</span>
+                            <span className="cp-item-desc">{cmd.descKey ? t(cmd.descKey) : cmd.desc}</span>
                           </div>
                           <div className="cp-item-actions" onClick={e => e.stopPropagation()}>
                             <button
                               className="cp-action-btn"
-                              data-tooltip="粘贴到终端"
+                              data-tooltip={t('common.pasteToTerminal')}
                               onClick={() => copyAndPaste(cmd.command)}
                             >📋</button>
                             <button
                               className={`cp-action-btn ${isFav ? 'active' : ''}`}
-                              data-tooltip={isFav ? '已收藏' : '收藏此命令'}
-                              onClick={() => addBuiltinToFavorites(cmd, group.category, group.icon)}
+                              data-tooltip={isFav ? t('commandPalette.tooltip.favorited') : t('commandPalette.tooltip.favoriteThis')}
+                              onClick={() => addBuiltinToFavorites(cmd, group.category, group.categoryKey, group.icon)}
                             >{isFav ? '⭐' : '☆'}</button>
                           </div>
                         </div>
@@ -374,10 +378,10 @@ export default function CommandPalette() {
 
         {/* Footer hint */}
         <div className="cp-footer">
-          <span>↑↓ 导航</span>
-          <span>Enter 执行</span>
-          <span>Esc 关闭</span>
-          <span>⌘⇧C 打开</span>
+          <span>{t('commandPalette.hint.navigate')}</span>
+          <span>{t('commandPalette.hint.execute')}</span>
+          <span>{t('commandPalette.hint.close')}</span>
+          <span>{t('commandPalette.hint.open')}</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '../stores/appStore'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 
 interface SystemInfo {
   hostname: string
@@ -28,13 +29,13 @@ interface Props {
   serverName: string
 }
 
-function formatUptime(seconds: number): string {
+function formatUptime(seconds: number, t: (key: string, params?: Record<string, string | number>) => string): string {
   const d = Math.floor(seconds / 86400)
   const h = Math.floor((seconds % 86400) / 3600)
   const m = Math.floor((seconds % 3600) / 60)
-  if (d > 0) return `${d} 天 ${h} 小时 ${m} 分钟`
-  if (h > 0) return `${h} 小时 ${m} 分钟`
-  return `${m} 分钟`
+  if (d > 0) return `${d} ${t('monitor.days')} ${h} ${t('monitor.hours')} ${m} ${t('monitor.minutes')}`
+  if (h > 0) return `${h} ${t('monitor.hours')} ${m} ${t('monitor.minutes')}`
+  return `${m} ${t('monitor.minutes')}`
 }
 
 function formatBytes(bytes: number): string {
@@ -102,6 +103,7 @@ function DiskBar({ percent }: { percent: number }) {
 export default function SystemMonitor({ tabId, serverName }: Props) {
   const { setShowMonitor } = useAppStore()
   const { toast } = useToast()
+  const { t } = useI18n()
   const [info, setInfo] = useState<SystemInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -187,7 +189,7 @@ echo "DISK_INFO_END"
       setInfo({
         hostname,
         os,
-        uptime: formatUptime(uptime),
+        uptime: formatUptime(uptime, t),
         cpuModel,
         cpuCores,
         cpuUsage,
@@ -200,11 +202,11 @@ echo "DISK_INFO_END"
       })
       setError(null)
     } catch (err: any) {
-      setError(err?.message ?? '采集失败')
+      setError(err?.message ?? t('monitor.error.collect'))
     } finally {
       setLoading(false)
     }
-  }, [tabId])
+  }, [tabId, t])
 
   useEffect(() => {
     collect()
@@ -220,7 +222,7 @@ echo "DISK_INFO_END"
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <span className="modal-title">📊 系统监控 - {serverName}</span>
+          <span className="modal-title">{t('monitor.title', { name: serverName })}</span>
           <button className="icon-btn" onClick={() => setShowMonitor(null)}>✕</button>
         </div>
 
@@ -233,27 +235,27 @@ echo "DISK_INFO_END"
             <div className="empty-state">
               <div className="empty-state-icon">⚠️</div>
               <div className="empty-state-text">{error}</div>
-              <button className="btn btn-secondary btn-sm" onClick={collect}>重试</button>
+              <button className="btn btn-secondary btn-sm" onClick={collect}>{t('common.retry')}</button>
             </div>
           ) : info ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Host info */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>主机名</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('monitor.hostname')}</span>
                   <span style={{ fontWeight: 500 }}>{info.hostname}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>操作系统</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('monitor.os')}</span>
                   <span style={{ fontWeight: 500, maxWidth: 280, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.os}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>运行时间</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('monitor.uptime')}</span>
                   <span style={{ fontWeight: 500 }}>{info.uptime}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>CPU</span>
-                  <span style={{ fontWeight: 500, maxWidth: 320, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.cpuModel} ({info.cpuCores} 核)</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('monitor.cpu')}</span>
+                  <span style={{ fontWeight: 500, maxWidth: 320, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('monitor.cpuCores', { model: info.cpuModel, cores: info.cpuCores })}</span>
                 </div>
               </div>
 
@@ -261,11 +263,11 @@ echo "DISK_INFO_END"
               <div style={{ display: 'flex', gap: 24, justifyContent: 'center', padding: '8px 0' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                   <ProgressRing percent={info.cpuUsage} size={76} strokeWidth={7} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>CPU 使用率</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{t('monitor.cpuUsage')}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                   <ProgressRing percent={info.memory.percent} size={76} strokeWidth={7} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>内存使用率</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{t('monitor.memoryUsage')}</span>
                 </div>
               </div>
 
@@ -275,7 +277,7 @@ echo "DISK_INFO_END"
                 padding: '10px 14px', display: 'flex', justifyContent: 'space-between',
                 fontSize: 12.5,
               }}>
-                <span style={{ color: 'var(--text-muted)' }}>内存</span>
+                <span style={{ color: 'var(--text-muted)' }}>{t('monitor.memory')}</span>
                 <span style={{ fontWeight: 600 }}>
                   <span style={{ color: getUsageColor(info.memory.percent) }}>{formatBytes(info.memory.used)}</span>
                   {' / '}
@@ -287,7 +289,7 @@ echo "DISK_INFO_END"
               {info.disks.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                    磁盘使用
+                    {t('monitor.diskUsage')}
                   </div>
                   {info.disks.map((d, i) => (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -306,7 +308,7 @@ echo "DISK_INFO_END"
               )}
 
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-                每 3 秒自动刷新
+                {t('monitor.autoRefresh')}
               </div>
             </div>
           ) : null}

@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore'
 import type { ServerConfig } from '../types'
 import { getServerColor } from '../utils/helpers'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 
 export default function Sidebar() {
   const {
@@ -22,6 +23,7 @@ export default function Sidebar() {
     setShowCommandPalette,
   } = useAppStore()
   const { toast } = useToast()
+  const { t } = useI18n()
 
   const [search, setSearch] = useState('')
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; server: ServerConfig } | null>(null)
@@ -110,11 +112,11 @@ export default function Sidebar() {
       if (result?.success) {
         useAppStore.getState().updateTab(tab.id, { status: 'connected' })
         useAppStore.getState().updateServer(server.id, { lastConnected: new Date().toISOString() })
-        toast('success', `已连接到 ${server.name}`)
+        toast('success', t('server.connected', { name: server.name }))
       }
     } catch (err: any) {
       useAppStore.getState().updateTab(tab.id, { status: 'error' })
-      toast('error', `连接失败: ${err?.error ?? err?.message ?? '未知错误'}`)
+      toast('error', t('server.connectFailed', { error: err?.error ?? err?.message ?? t('server.unknownError') }))
     } finally {
       setConnecting(prev => {
         const s = new Set(prev)
@@ -134,11 +136,11 @@ export default function Sidebar() {
     }
     addTab({
       serverId: '__local__',
-      serverName: '本地终端',
+      serverName: t('terminal.localTerminal'),
       serverHost: 'localhost',
       type: 'local',
       status: 'connected',
-      title: '本地终端',
+      title: t('terminal.localTerminal'),
       color: '#10b981',
     })
   }, [tabs, addTab, setActiveTab])
@@ -189,7 +191,7 @@ export default function Sidebar() {
           </div>
           <input
             className="sidebar-search"
-            placeholder="搜索服务器..."
+            placeholder={t('server.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -200,12 +202,12 @@ export default function Sidebar() {
             <div className="empty-state">
               <div className="empty-state-icon">🖥️</div>
               <div className="empty-state-text">
-                {search ? '没有匹配的服务器' : '还没有服务器\n点击下方按钮添加'}
+                {search ? t('server.empty.noMatch') : t('server.empty.noServer')}
               </div>
             </div>
           ) : (
             <>
-              <div className="server-group-label">服务器列表</div>
+              <div className="server-group-label">{t('server.groupLabel')}</div>
               {filtered.map(server => {
                 const color = server.color ?? getServerColor(server.host)
                 const isConnecting = connecting.has(server.id)
@@ -234,7 +236,7 @@ export default function Sidebar() {
                     <div className="server-actions">
                       <button
                         className="icon-btn"
-                        data-tooltip="文件管理"
+                        data-tooltip={t('server.tooltip.fileManager')}
                         onClick={e => {
                           e.stopPropagation()
                           const existing = tabs.find(t => t.serverId === server.id && t.status === 'connected')
@@ -248,7 +250,7 @@ export default function Sidebar() {
                       >📂</button>
                       <button
                         className="icon-btn"
-                        data-tooltip="编辑"
+                        data-tooltip={t('server.tooltip.edit')}
                         onClick={e => {
                           e.stopPropagation()
                           setEditServerId(server.id)
@@ -266,23 +268,23 @@ export default function Sidebar() {
         <div className="sidebar-bottom">
           <button className="sidebar-action" onClick={openLocalTerminal}>
             <span>💻</span>
-            <span>本地终端</span>
+            <span>{t('terminal.localTerminal')}</span>
           </button>
           <button className="sidebar-action accent" onClick={() => setShowAddServer(true)}>
             <span>＋</span>
-            <span>添加服务器</span>
+            <span>{t('server.title.add').replace('＋ ', '')}</span>
           </button>
           <button className="sidebar-action" onClick={() => setShowFileManager(!showFileManager)}>
             <span>📁</span>
-            <span>文件管理器</span>
+            <span>{t('fileManager.title')}</span>
           </button>
           <button className="sidebar-action" onClick={() => setShowCommandPalette(true)}>
             <span>⭐</span>
-            <span>命令收藏</span>
+            <span>{t('commandPalette.tab.favorites').replace('⭐ ', '')}</span>
           </button>
           <button className="sidebar-action" onClick={() => setShowSettings(true)}>
             <span>⚙️</span>
-            <span>设置</span>
+            <span>{t('common.settings').replace('⚙️ ', '')}</span>
           </button>
         </div>
       </div>
@@ -301,7 +303,7 @@ export default function Sidebar() {
             handleConnect(contextMenu.server)
             setContextMenu(null)
           }}>
-            🖥️ 打开终端
+            {t('server.context.terminal')}
           </div>
           <div className="context-menu-item" onClick={() => {
             const existing = tabs.find(t => t.serverId === contextMenu.server.id && t.status === 'connected')
@@ -313,18 +315,18 @@ export default function Sidebar() {
             setShowFileManager(true)
             setContextMenu(null)
           }}>
-            📁 文件管理
+            {t('server.context.fileManager')}
           </div>
           <div className="context-menu-item" onClick={() => {
             const tab = tabs.find(t => t.serverId === contextMenu.server.id && t.status === 'connected')
             if (tab) {
               setShowMonitor({ tabId: tab.id, serverName: contextMenu.server.name })
             } else {
-              toast('warning', '请先连接到该服务器')
+              toast('warning', t('server.monitor.warning'))
             }
             setContextMenu(null)
           }}>
-            📊 系统监控
+            {t('server.context.monitor')}
           </div>
           <div className="context-menu-sep" />
           <div className="context-menu-item" onClick={() => {
@@ -332,14 +334,14 @@ export default function Sidebar() {
             setShowAddServer(true)
             setContextMenu(null)
           }}>
-            ✏️ 编辑
+            {t('server.context.edit')}
           </div>
           <div className="context-menu-item danger" onClick={() => {
             deleteServer(contextMenu.server.id)
-            toast('info', `已删除 ${contextMenu.server.name}`)
+            toast('info', t('server.deleted', { name: contextMenu.server.name }))
             setContextMenu(null)
           }}>
-            🗑️ 删除
+            {t('server.context.delete')}
           </div>
         </div>
       )}

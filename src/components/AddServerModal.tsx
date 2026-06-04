@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore'
 import type { ServerConfig } from '../types'
 import { getServerColor } from '../utils/helpers'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 
 const ACCENT_COLORS = [
   '#7c3aed', '#3b82f6', '#10b981', '#f59e0b',
@@ -13,6 +14,7 @@ const ACCENT_COLORS = [
 export default function AddServerModal() {
   const { showAddServer, setShowAddServer, editServerId, setEditServerId, addServer, updateServer, servers } = useAppStore()
   const { toast } = useToast()
+  const { t } = useI18n()
   const [authMode, setAuthMode] = useState<'password' | 'key'>('password')
   const [form, setForm] = useState<Partial<ServerConfig>>({
     name: '',
@@ -60,8 +62,8 @@ export default function AddServerModal() {
   }
 
   const handleSubmit = () => {
-    if (!form.host?.trim()) return toast('error', '请输入服务器地址')
-    if (!form.username?.trim()) return toast('error', '请输入用户名')
+    if (!form.host?.trim()) return toast('error', t('server.error.hostRequired'))
+    if (!form.username?.trim()) return toast('error', t('server.error.usernameRequired'))
     if (!form.name?.trim()) {
       setForm(f => ({ ...f, name: form.host! }))
     }
@@ -79,16 +81,16 @@ export default function AddServerModal() {
 
     if (editServerId) {
       updateServer(editServerId, data)
-      toast('success', '服务器信息已更新')
+      toast('success', t('server.success.updated'))
     } else {
       addServer(data)
-      toast('success', `已添加 ${data.name}`)
+      toast('success', t('server.success.added', { name: data.name }))
     }
     handleClose()
   }
 
   const testConnection = async () => {
-    if (!form.host?.trim()) return toast('error', '请先填写服务器地址')
+    if (!form.host?.trim()) return toast('error', t('server.error.hostRequiredForTest'))
     setTesting(true)
     const testId = 'test_' + Date.now()
     try {
@@ -102,11 +104,11 @@ export default function AddServerModal() {
         passphrase: authMode === 'key' ? form.passphrase : undefined,
       })
       if (result?.success) {
-        toast('success', '✅ 连接测试成功！')
+        toast('success', t('server.success.testPassed'))
         window.electron?.sshDisconnect(testId)
       }
     } catch (err: any) {
-      toast('error', `连接失败: ${err?.error ?? err?.message}`)
+      toast('error', t('server.error.testFailed', { error: err?.error ?? err?.message }))
     } finally {
       setTesting(false)
     }
@@ -119,17 +121,17 @@ export default function AddServerModal() {
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title">
-            {editServerId ? '✏️ 编辑服务器' : '＋ 添加服务器'}
+            {editServerId ? t('server.title.edit') : t('server.title.add')}
           </span>
           <button className="icon-btn" onClick={handleClose}>✕</button>
         </div>
 
         <div className="modal-body">
           <div className="form-group">
-            <label className="form-label">服务器名称</label>
+            <label className="form-label">{t('server.label.name')}</label>
             <input
               className="form-input"
-              placeholder="My Server（可选，默认使用主机名）"
+              placeholder={t('server.placeholder.name')}
               value={form.name ?? ''}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             />
@@ -137,20 +139,20 @@ export default function AddServerModal() {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">主机地址</label>
+              <label className="form-label">{t('server.label.host')}</label>
               <input
                 className="form-input"
-                placeholder="192.168.1.1 或 example.com"
+                placeholder={t('server.placeholder.host')}
                 value={form.host ?? ''}
                 onChange={e => setForm(f => ({ ...f, host: e.target.value }))}
               />
             </div>
             <div className="form-group">
-              <label className="form-label">端口</label>
+              <label className="form-label">{t('server.label.port')}</label>
               <input
                 className="form-input"
                 type="number"
-                placeholder="22"
+                placeholder={t('server.placeholder.port')}
                 value={form.port ?? 22}
                 onChange={e => setForm(f => ({ ...f, port: parseInt(e.target.value) || 22 }))}
               />
@@ -158,10 +160,10 @@ export default function AddServerModal() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">用户名</label>
+            <label className="form-label">{t('server.label.username')}</label>
             <input
               className="form-input"
-              placeholder="root"
+              placeholder={t('server.placeholder.username')}
               value={form.username ?? ''}
               onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
             />
@@ -169,26 +171,26 @@ export default function AddServerModal() {
 
           {/* Auth Mode Toggle */}
           <div className="form-group">
-            <label className="form-label">认证方式</label>
+            <label className="form-label">{t('server.label.authMode')}</label>
             <div className="tabs-toggle">
               <button
                 className={`tabs-toggle-btn ${authMode === 'password' ? 'active' : ''}`}
                 onClick={() => setAuthMode('password')}
-              >🔑 密码</button>
+              >{t('server.auth.password')}</button>
               <button
                 className={`tabs-toggle-btn ${authMode === 'key' ? 'active' : ''}`}
                 onClick={() => setAuthMode('key')}
-              >🗝️ 私钥</button>
+              >{t('server.auth.key')}</button>
             </div>
           </div>
 
           {authMode === 'password' ? (
             <div className="form-group">
-              <label className="form-label">密码</label>
+              <label className="form-label">{t('server.label.password')}</label>
               <input
                 className="form-input"
                 type="password"
-                placeholder="SSH 密码"
+                placeholder={t('server.placeholder.password')}
                 value={form.password ?? ''}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               />
@@ -196,21 +198,21 @@ export default function AddServerModal() {
           ) : (
             <>
               <div className="form-group">
-                <label className="form-label">私钥内容</label>
+                <label className="form-label">{t('server.label.privateKey')}</label>
                 <textarea
                   className="form-input form-textarea"
-                  placeholder="粘贴 PEM 格式私钥 (-----BEGIN RSA/EC/OPENSSH PRIVATE KEY-----)"
+                  placeholder={t('server.placeholder.privateKey')}
                   value={form.privateKey ?? ''}
                   onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))}
                 />
-                <span className="form-hint">支持 RSA、EC、Ed25519 等格式私钥</span>
+                <span className="form-hint">{t('server.hint.privateKey')}</span>
               </div>
               <div className="form-group">
-                <label className="form-label">私钥密码（可选）</label>
+                <label className="form-label">{t('server.label.passphrase')}</label>
                 <input
                   className="form-input"
                   type="password"
-                  placeholder="如私钥有密码保护，请填写"
+                  placeholder={t('server.placeholder.passphrase')}
                   value={form.passphrase ?? ''}
                   onChange={e => setForm(f => ({ ...f, passphrase: e.target.value }))}
                 />
@@ -220,7 +222,7 @@ export default function AddServerModal() {
 
           {/* Color Picker */}
           <div className="form-group">
-            <label className="form-label">标签颜色</label>
+            <label className="form-label">{t('server.label.color')}</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {ACCENT_COLORS.map(c => (
                 <button
@@ -249,11 +251,11 @@ export default function AddServerModal() {
             disabled={testing}
           >
             {testing ? <span className="spinner" /> : null}
-            {testing ? '测试中...' : '🔌 测试连接'}
+            {testing ? t('server.btn.testing') : t('server.btn.test')}
           </button>
-          <button className="btn btn-secondary" onClick={handleClose}>取消</button>
+          <button className="btn btn-secondary" onClick={handleClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSubmit}>
-            {editServerId ? '保存修改' : '添加服务器'}
+            {editServerId ? t('server.btn.submit.edit') : t('server.btn.submit.add')}
           </button>
         </div>
       </div>
